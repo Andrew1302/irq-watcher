@@ -10,7 +10,16 @@ import (
 	"strings"
 	"time"
 	"fmt"
+	
+	httpSwagger "github.com/swaggo/http-swagger"
+	_ "irq-watcher-api/docs"
 )
+
+// @title IRQ Watcher API
+// @version 1.0
+// @description API para monitoramento de interrupções e métricas do sistema
+// @host localhost:8080
+// @BasePath /
 
 var categorias = map[string]string{
 	"eth": "rede", "enp": "rede", "wlan": "rede", "mlx": "rede", "bnx": "rede", "ath10k_pci": "rede",
@@ -171,6 +180,14 @@ func readProcInterrupts() (map[string]uint64, map[string]map[string]uint64, erro
 	return porCPU, porCategoria, nil
 }
 
+// @Summary Obter métricas do sistema
+// @Description Retorna estatísticas de interrupções por CPU, categorias e trocas de contexto
+// @Tags metrics
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{} "Métricas do sistema"
+// @Failure 500 {string} string "Erro interno do servidor"
+// @Router /metrics [get]
 func handler(w http.ResponseWriter, r *http.Request) {
 	atualStat, ctxt, err := readProcStat()
 	if err != nil {
@@ -219,5 +236,6 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	http.HandleFunc("/metrics", handler)
+	http.HandleFunc("/docs/", httpSwagger.WrapHandler)
 	log.Fatal(http.ListenAndServe("0.0.0.0:8080", nil))
 }

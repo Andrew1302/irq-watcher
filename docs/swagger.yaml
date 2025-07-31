@@ -1,0 +1,30 @@
+basePath: /
+host: localhost:8080
+info:
+  contact: {}
+  description: API para monitoramento de interrupções e métricas do sistema
+  title: IRQ Watcher API
+  version: "1.0"
+paths:
+  /metrics:
+    get:
+      consumes:
+      - application/json
+      description: Retorna estatísticas de interrupções por CPU, categorias e trocas
+        de contexto
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Métricas do sistema
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Erro interno do servidor
+          schema:
+            type: string
+      summary: Obter métricas do sistema
+      tags:
+      - metrics
+swagger: "2.0"
