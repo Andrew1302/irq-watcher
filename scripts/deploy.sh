@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Configuration
-RASPBERRY_IP="192.168.1.100"  # Change to your Raspberry Pi IP
+RASPBERRY_IP="192.168.0.171"  # Change to your Raspberry Pi IP
 RASPBERRY_USER="pi"
 
 echo "Deploying IRQ Watcher to Raspberry Pi..."
@@ -9,7 +9,7 @@ echo "Deploying IRQ Watcher to Raspberry Pi..."
 # Build for Raspberry Pi
 echo "Building for Raspberry Pi..."
 cd api
-GOOS=linux GOARCH=arm GOARM=6 go build -o ../bin/irq-watcher-arm main.go
+GOOS=linux GOARCH=arm GOARM=7 go build -o ../bin/irq-watcher-arm main.go
 cd ..
 
 # Create bin directory if it doesn't exist
