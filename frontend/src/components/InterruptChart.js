@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import styles from './InterruptChart.module.css';
 
-// Importação dinâmica do componente de gráfico
+// Importação dinâmica dos componentes de gráfico
 const ChartRenderer = dynamic(() => import('./ChartRenderer'), { 
   ssr: false,
   loading: () => (
@@ -18,6 +18,23 @@ const ChartRenderer = dynamic(() => import('./ChartRenderer'), {
       borderRadius: '4px' 
     }}>
       <p style={{ color: '#2c3e50', fontSize: '16px', fontWeight: '500' }}>📊 Carregando gráfico...</p>
+    </div>
+  )
+});
+
+const TemporalChart = dynamic(() => import('./TemporalChart'), { 
+  ssr: false,
+  loading: () => (
+    <div style={{ 
+      height: '200px', 
+      display: 'flex', 
+      alignItems: 'center', 
+      justifyContent: 'center', 
+      background: '#f8f9fa', 
+      border: '1px dashed #dee2e6', 
+      borderRadius: '4px' 
+    }}>
+      <p style={{ color: '#2c3e50', fontSize: '16px', fontWeight: '500' }}>📈 Carregando gráfico temporal...</p>
     </div>
   )
 });
@@ -55,6 +72,23 @@ export default function InterruptChart({ data }) {
     setSelectedCategories([]);
   }, [viewMode]);
 
+  // Limpar seleções inválidas quando os dados mudam
+  useEffect(() => {
+    if (!data) return;
+    
+    // Limpar núcleos que não existem nos dados
+    if (data.por_cpu) {
+      const availableCores = Object.keys(data.por_cpu);
+      setSelectedCores(prev => prev.filter(core => availableCores.includes(core)));
+    }
+    
+    // Limpar categorias que não existem nos dados
+    if (data.por_categoria) {
+      const availableCategories = Object.keys(data.por_categoria);
+      setSelectedCategories(prev => prev.filter(categoria => availableCategories.includes(categoria)));
+    }
+  }, [data]);
+
   // Processar dados para o gráfico por cores
   const chartDataByCores = useMemo(() => {
     if (!data || !data.por_cpu || selectedCores.length === 0) return [];
@@ -77,17 +111,20 @@ export default function InterruptChart({ data }) {
     
     if (coresToUse.length === 0) return [];
     
-    return selectedCategories.map(categoria => {
-      const total = coresToUse.reduce((sum, core) => {
-        return sum + (data.por_categoria[categoria][core] || 0);
-      }, 0);
-      
-      return {
-        name: categoria.charAt(0).toUpperCase() + categoria.slice(1),
-        categoria: categoria,
-        interrupcoes: total
-      };
-    });
+    return selectedCategories
+      .filter(categoria => data.por_categoria[categoria]) // Filtrar categorias que existem nos dados
+      .map(categoria => {
+        const categoriaData = data.por_categoria[categoria];
+        const total = coresToUse.reduce((sum, core) => {
+          return sum + (categoriaData[core] || 0);
+        }, 0);
+        
+        return {
+          name: categoria.charAt(0).toUpperCase() + categoria.slice(1),
+          categoria: categoria,
+          interrupcoes: total
+        };
+      });
   }, [data, selectedCategories, selectedCores, viewMode]);
 
   // Processar dados para gráfico detalhado (categoria por core)
@@ -101,7 +138,12 @@ export default function InterruptChart({ data }) {
       const coreData = { name: `Núcleo ${core}`, core: core };
       
       selectedCategories.forEach(categoria => {
-        coreData[categoria] = data.por_categoria[categoria][core] || 0;
+        // Verificar se a categoria existe nos dados antes de acessar
+        if (data.por_categoria[categoria]) {
+          coreData[categoria] = data.por_categoria[categoria][core] || 0;
+        } else {
+          coreData[categoria] = 0; // Valor padrão se a categoria não existir
+        }
       });
       
       return coreData;
@@ -269,6 +311,15 @@ export default function InterruptChart({ data }) {
           selectedCategories={selectedCategories}
         />
       </div>
+
+      {(viewMode === 'cores' || viewMode === 'categorias') && (
+        <TemporalChart 
+          data={data}
+          selectedCores={selectedCores}
+          selectedCategories={selectedCategories}
+          viewMode={viewMode}
+        />
+      )}
 
       <div className={styles.stats}>
         <div className={styles['stat-item']}>
