@@ -75,6 +75,7 @@ O servidor estará disponível em `http://localhost:8080`
 
 ### Forward da porta com ngrok
 ```bash
+ssh pi@192.168.0.171
 ngrok http http://localhost:8080
 ```
 
@@ -188,7 +189,7 @@ sudo kill -9 $(lsof -t -i:8080)
 ### Usando Screen (Recomendado para SSH):
 ```bash
 # Conectar via SSH
-ssh pi@192.168.1.100
+ssh pi@192.168.0.171
 
 # Iniciar uma sessão screen
 screen -S irq-watcher
