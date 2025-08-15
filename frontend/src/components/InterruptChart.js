@@ -39,23 +39,78 @@ const TemporalChart = dynamic(() => import('./TemporalChart'), {
   )
 });
 
+const MemoryChart = dynamic(() => import('./MemoryChart'), { 
+  ssr: false,
+  loading: () => (
+    <div style={{ 
+      height: '200px', 
+      display: 'flex', 
+      alignItems: 'center', 
+      justifyContent: 'center', 
+      background: '#f8f9fa', 
+      border: '1px dashed #dee2e6', 
+      borderRadius: '4px' 
+    }}>
+      <p style={{ color: '#2c3e50', fontSize: '16px', fontWeight: '500' }}>💾 Carregando gráfico de memória...</p>
+    </div>
+  )
+});
+
 // Função para formatação consistente de números (evita problemas de hidratação)
 const formatNumber = (num) => {
   if (typeof num !== 'number') return '0';
   return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 };
 
+// Função para converter KB para GB
+const kbToGb = (kb) => {
+  if (typeof kb !== 'number') return 0;
+  return (kb / 1024 / 1024);
+};
+
+// Função para formatear tamanho de memória
+const formatMemorySize = (kb) => {
+  const gb = kbToGb(kb);
+  if (gb >= 1) {
+    return `${gb.toFixed(2)} GB`;
+  } else {
+    const mb = kb / 1024;
+    return `${mb.toFixed(0)} MB`;
+  }
+};
+
+// Descrições das métricas de memória
+const memoriaDescricoes = {
+  'total': 'Quantidade total de memória RAM física instalada no sistema',
+  'disponivel': 'Memória utilizável por novas aplicações, incluindo RAM livre e cache liberável pelo kernel',
+  'livre': 'Memória completamente não utilizada, sem dados ou cache. Porção da RAM que está completamente vazia',
+  'uso': 'Percentual efetivo de uso: (Total - Disponível) / Total. Indica memória ativamente utilizada não liberável'
+};
+
+// Descrições das métricas de swap
+const swapDescricoes = {
+  'total': 'Tamanho total do espaço de swap (arquivo de paginação ou partição de swap)',
+  'usado': 'Quantidade de swap em uso. Valores altos indicam pouca RAM disponível',
+  'livre': 'Espaço de swap disponível. Usado quando RAM está cheia, movendo dados menos usados para disco',
+  'uso': 'Percentual do swap em uso. Valores altos podem indicar necessidade de mais RAM'
+};
+
 // Descrições das categorias de interrupção
 const categoriaDescricoes = {
-  'armazenamento': 'Interrupções relacionadas a dispositivos de armazenamento como discos rígidos, SSDs e controladores SATA/NVMe',
-  'energia': 'Interrupções do sistema de gerenciamento de energia, incluindo eventos de ACPI e controle de energia do processador',
-  'entrada': 'Interrupções de dispositivos de entrada como teclado, mouse e outros dispositivos HID (Human Interface Device)',
-  'gpu': 'Interrupções da placa de vídeo e processamento gráfico, incluindo operações de renderização e cálculos GPU',
-  'outras': 'Interrupções diversas que não se enquadram nas outras categorias específicas do sistema',
-  'rede': 'Interrupções relacionadas à comunicação de rede, incluindo placas Ethernet, Wi-Fi e outros adaptadores de rede',
-  'sistema': 'Interrupções críticas do sistema operacional, incluindo timer do sistema, scheduler e operações do kernel',
-  'temporizador': 'Interrupções de timer e eventos de temporização para sincronização e agendamento de tarefas',
-  'usb': 'Interrupções de dispositivos USB conectados ao sistema, incluindo controladores USB e dispositivos periféricos'
+  'rede': 'Comunicação e transferência de dados através de conexões de rede local, Wi-Fi, internet e outros protocolos de comunicação entre dispositivos',
+  'armazenamento': 'Operações de leitura e escrita de dados em discos rígidos, SSDs, pendrives e outros dispositivos de armazenamento de dados',
+  'usb': 'Gerenciamento e comunicação com dispositivos conectados através de portas USB, incluindo transferência de dados e fornecimento de energia',
+  'entrada': 'Captura de comandos e interações do usuário através de teclados, mouses, touchpads, joysticks e outros dispositivos de entrada',
+  'gpu': 'Processamento gráfico, renderização de imagens, aceleração de vídeo e cálculos paralelos realizados pela placa de vídeo',
+  'audio': 'Processamento de som, reprodução e gravação de áudio, controle de volume e comunicação com dispositivos sonoros',
+  'energia': 'Gerenciamento de consumo energético, controle térmico, ajuste de frequências do processador e otimização da bateria',
+  'temporizador': 'Sincronização temporal do sistema, agendamento de tarefas, controle de relógio e eventos baseados em tempo',
+  'inter-cpu': 'Comunicação e coordenação entre múltiplos núcleos do processador para distribuição de tarefas e sincronização',
+  'kernel': 'Operações internas críticas do sistema operacional, tratamento de erros, monitoramento de desempenho e funções essenciais',
+  'pcie': 'Comunicação com dispositivos conectados via PCIe, incluindo placas de expansão, dispositivos Thunderbolt e componentes de alta velocidade',
+  'virtualizacao': 'Suporte a máquinas virtuais, containers e ambientes virtualizados, facilitando a execução de múltiplos sistemas',
+  'gpio': 'Controle de pinos de entrada/saída de uso geral, sensores, LEDs e outros dispositivos eletrônicos de baixo nível',
+  'sistema': 'Operações fundamentais do sistema operacional e interrupções que não se enquadram em categorias específicas'
 };
 
 export default function InterruptChart({ data }) {
@@ -321,6 +376,8 @@ export default function InterruptChart({ data }) {
         />
       )}
 
+      <MemoryChart data={data} />
+
       <div className={styles.stats}>
         <div className={styles['stat-item']}>
           <h4>Utilização da CPU</h4>
@@ -331,6 +388,88 @@ export default function InterruptChart({ data }) {
           <h4>Trocas de Contexto</h4>
           <p className={styles['context-switches']}>{formatNumber(data.trocas_de_contexto || 0)}</p>
         </div>
+        {data.memoria && (
+          <>
+            <div className={styles['stat-item']}>
+              <h4>Memória RAM</h4>
+              <p className={styles['memory-total']}>
+                Total: {formatMemorySize(data.memoria.mem_total_kb)}
+                <span 
+                  className={styles['tooltip-icon']}
+                  title={memoriaDescricoes['total']}
+                >
+                  ?
+                </span>
+              </p>
+              <p className={styles['memory-available']}>
+                Disponível: {formatMemorySize(data.memoria.mem_available_kb)}
+                <span 
+                  className={styles['tooltip-icon']}
+                  title={memoriaDescricoes['disponivel']}
+                >
+                  ?
+                </span>
+              </p>
+              <p className={styles['memory-free']}>
+                Livre: {formatMemorySize(data.memoria.mem_free_kb)}
+                <span 
+                  className={styles['tooltip-icon']}
+                  title={memoriaDescricoes['livre']}
+                >
+                  ?
+                </span>
+              </p>
+              <p className={styles['memory-usage-percent']}>
+                Uso: {(((data.memoria.mem_total_kb - data.memoria.mem_available_kb) / data.memoria.mem_total_kb) * 100).toFixed(1)}%
+                <span 
+                  className={styles['tooltip-icon']}
+                  title={memoriaDescricoes['uso']}
+                >
+                  ?
+                </span>
+              </p>
+            </div>
+            <div className={styles['stat-item']}>
+              <h4>Memória Swap</h4>
+              <p className={styles['swap-total']}>
+                Total: {formatMemorySize(data.memoria.swap_total_kb)}
+                <span 
+                  className={styles['tooltip-icon']}
+                  title={swapDescricoes['total']}
+                >
+                  ?
+                </span>
+              </p>
+              <p className={styles['swap-used']}>
+                Usado: {formatMemorySize(data.memoria.swap_total_kb - data.memoria.swap_free_kb)}
+                <span 
+                  className={styles['tooltip-icon']}
+                  title={swapDescricoes['usado']}
+                >
+                  ?
+                </span>
+              </p>
+              <p className={styles['swap-free']}>
+                Livre: {formatMemorySize(data.memoria.swap_free_kb)}
+                <span 
+                  className={styles['tooltip-icon']}
+                  title={swapDescricoes['livre']}
+                >
+                  ?
+                </span>
+              </p>
+              <p className={styles['swap-usage-percent']}>
+                Uso: {data.memoria.swap_total_kb > 0 ? (((data.memoria.swap_total_kb - data.memoria.swap_free_kb) / data.memoria.swap_total_kb) * 100).toFixed(1) : 0}%
+                <span 
+                  className={styles['tooltip-icon']}
+                  title={swapDescricoes['uso']}
+                >
+                  ?
+                </span>
+              </p>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

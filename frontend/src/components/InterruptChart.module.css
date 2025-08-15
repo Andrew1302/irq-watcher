@@ -253,7 +253,8 @@
   font-size: 13px;
   font-weight: normal;
   white-space: normal;
-  width: 280px;
+  width: 400px;
+  max-width: 95vw;
   text-align: left;
   line-height: 1.4;
   opacity: 0;
@@ -357,6 +358,42 @@
   color: #e74c3c !important;
 }
 
+.memory-total {
+  color: #3498db !important;
+}
+
+.memory-used {
+  color: #e74c3c !important;
+}
+
+.memory-available {
+  color: #27ae60 !important;
+}
+
+.memory-free {
+  color: #3498db !important;
+}
+
+.memory-usage-percent {
+  color: #f39c12 !important;
+}
+
+.swap-total {
+  color: #9b59b6 !important;
+}
+
+.swap-used {
+  color: #e67e22 !important;
+}
+
+.swap-free {
+  color: #1abc9c !important;
+}
+
+.swap-usage-percent {
+  color: #e74c3c !important;
+}
+
 .loading {
   text-align: center;
   padding: 50px;
@@ -448,7 +485,8 @@
   }
   
   .tooltip-icon::before {
-    width: 250px;
+    width: 360px;
+    max-width: 90vw;
     font-size: 12px;
     padding: 10px 12px;
   }

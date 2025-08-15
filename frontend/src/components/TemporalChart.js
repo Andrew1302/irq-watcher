@@ -28,22 +28,66 @@ ChartJS.register(
 
 const TemporalChart = ({ data, selectedCores, selectedCategories, viewMode }) => {
   const [isEnabled, setIsEnabled] = useState(false);
-  const [allDataHistory, setAllDataHistory] = useState([]); // Histórico completo das 300 últimas requisições
+  const [allDataHistory, setAllDataHistory] = useState([]);
   const [baselineValues, setBaselineValues] = useState(null);
+  
+  // Estados próprios para filtros do gráfico temporal
+  const [temporalCategories, setTemporalCategories] = useState([]);
+  const [allCategories, setAllCategories] = useState(false);
+  const [groupInterruptions, setGroupInterruptions] = useState(false);
 
-  // Verificar se há filtros selecionados E se é um modo suportado
+  // Extrair categorias disponíveis dos dados
+  const availableCategories = useMemo(() => {
+    if (!data?.por_categoria) return [];
+    return Object.keys(data.por_categoria);
+  }, [data]);
+
+  // Verificar se há filtros válidos para o gráfico temporal
   const hasValidFilters = useMemo(() => {
-    if (viewMode === 'detalhado') return false;
-    if (viewMode === 'cores') return selectedCores.length > 0;
-    if (viewMode === 'categorias') return selectedCategories.length > 0;
-    return false;
-  }, [selectedCores, selectedCategories, viewMode]);
+    return allCategories || temporalCategories.length > 0;
+  }, [allCategories, temporalCategories]);
+
+  // Sincronizar estado "Todas as Categorias" com seleções individuais
+  useEffect(() => {
+    if (availableCategories.length > 0) {
+      const allSelected = temporalCategories.length === availableCategories.length && 
+                          availableCategories.every(cat => temporalCategories.includes(cat));
+      setAllCategories(allSelected);
+    }
+  }, [temporalCategories, availableCategories]);
 
   // Resetar apenas quando botão for apertado
   const resetData = useCallback(() => {
     setAllDataHistory([]);
     setBaselineValues(null);
   }, []);
+
+  // Funções para gerenciar filtros de categorias
+  const handleCategoryToggle = (category) => {
+    setTemporalCategories(prev => 
+      prev.includes(category) 
+        ? prev.filter(c => c !== category)
+        : [...prev, category]
+    );
+  };
+
+  const handleAllCategoriesToggle = () => {
+    setAllCategories(prev => {
+      const newValue = !prev;
+      if (newValue) {
+        // Quando marcar "Todas as Categorias", selecionar todas individualmente
+        setTemporalCategories(availableCategories);
+      } else {
+        // Quando desmarcar, limpar seleções individuais
+        setTemporalCategories([]);
+      }
+      return newValue;
+    });
+  };
+
+  const handleGroupInterruptionsToggle = () => {
+    setGroupInterruptions(prev => !prev);
+  };
 
   // Efeito para coletar dados sempre que a API atualizar (se estiver habilitado)
   useEffect(() => {
@@ -92,14 +136,24 @@ const TemporalChart = ({ data, selectedCores, selectedCategories, viewMode }) =>
       const currentData = historyItem.data;
       let currentValues = {};
       
-      if (viewMode === 'cores') {
-        selectedCores.forEach(core => {
-          if (currentData?.por_cpu?.[core]) {
-            currentValues[`Núcleo ${core}`] = currentData.por_cpu[core];
+      // Usar filtros próprios do gráfico temporal
+      if (groupInterruptions) {
+        // Quando "Agrupar Interrupções" está ativo, somar todas as categorias selecionadas em uma única linha
+        let totalSum = 0;
+        const categoriesToSum = temporalCategories.length > 0 ? temporalCategories : availableCategories;
+        
+        categoriesToSum.forEach(category => {
+          if (currentData?.por_categoria?.[category]) {
+            const categoryTotal = Object.values(currentData.por_categoria[category]).reduce((sum, val) => sum + (val || 0), 0);
+            totalSum += categoryTotal;
           }
         });
-      } else if (viewMode === 'categorias') {
-        selectedCategories.forEach(category => {
+        currentValues['Total de Interrupções'] = totalSum;
+      } else {
+        // Modo normal: mostrar linhas individuais para cada categoria selecionada
+        const categoriesToProcess = temporalCategories.length > 0 ? temporalCategories : [];
+        
+        categoriesToProcess.forEach(category => {
           if (currentData?.por_categoria?.[category]) {
             const total = Object.values(currentData.por_categoria[category]).reduce((sum, val) => sum + (val || 0), 0);
             currentValues[category.charAt(0).toUpperCase() + category.slice(1)] = total;
@@ -148,19 +202,25 @@ const TemporalChart = ({ data, selectedCores, selectedCategories, viewMode }) =>
 
     const colors = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#f97316', '#ec4899', '#8b5a2b', '#059669', '#dc2626'];
     
-    const datasets = Array.from(allSeries).map((seriesName, index) => ({
-      label: seriesName,
-      data: relativeData.map(item => ({
-        x: item.time, // Tempo real baseado nos timestamps
-        y: item.values[seriesName] || 0
-      })),
-      borderColor: colors[index % colors.length],
-      backgroundColor: colors[index % colors.length] + '20',
-      tension: 0.1,
-      pointRadius: 1,
-      borderWidth: 2,
-      fill: false
-    }));
+    const datasets = Array.from(allSeries).map((seriesName, index) => {
+      // Se for a linha de total (quando todas as categorias estão selecionadas), usar cor especial
+      const isTotal = seriesName === 'Total de Interrupções';
+      const color = isTotal ? '#2c3e50' : colors[index % colors.length];
+      
+      return {
+        label: seriesName,
+        data: relativeData.map(item => ({
+          x: item.time, // Tempo real baseado nos timestamps
+          y: item.values[seriesName] || 0
+        })),
+        borderColor: color,
+        backgroundColor: color + '20',
+        tension: 0.1,
+        pointRadius: isTotal ? 2 : 1, // Pontos maiores para o total
+        borderWidth: isTotal ? 3 : 2, // Linha mais grossa para o total
+        fill: false
+      };
+    });
 
     return {
       datasets: datasets,
@@ -170,7 +230,7 @@ const TemporalChart = ({ data, selectedCores, selectedCategories, viewMode }) =>
         timeSpan: relativeData.length > 0 ? relativeData[relativeData.length - 1].time : 0
       }
     };
-  }, [allDataHistory, baselineValues, selectedCores, selectedCategories, viewMode, isEnabled, hasValidFilters]);
+  }, [allDataHistory, baselineValues, temporalCategories, allCategories, availableCategories, isEnabled, hasValidFilters]);
 
   const chartOptions = useMemo(() => ({
     responsive: true,
@@ -264,13 +324,9 @@ const TemporalChart = ({ data, selectedCores, selectedCategories, viewMode }) =>
       <div className={styles['temporal-header']}>
         <h3>📈 Gráfico Temporal de Interrupções</h3>
         <div className={styles['temporal-controls']}>
-          {viewMode === 'detalhado' ? (
+          {!hasValidFilters ? (
             <p className={styles['temporal-warning']}>
-              ⚠️ O gráfico temporal não está disponível no modo detalhado. Use o modo "Por Núcleos" ou "Por Categorias".
-            </p>
-          ) : !hasValidFilters ? (
-            <p className={styles['temporal-warning']}>
-              ⚠️ Selecione pelo menos um núcleo ou categoria nos filtros acima para habilitar o gráfico temporal.
+              ⚠️ Selecione pelo menos uma categoria abaixo para habilitar o gráfico temporal.
             </p>
           ) : (
             <>
@@ -292,6 +348,62 @@ const TemporalChart = ({ data, selectedCores, selectedCategories, viewMode }) =>
                 </button>
               )}
             </>
+          )}
+        </div>
+      </div>
+
+      {/* Interface própria de filtros para o gráfico temporal */}
+      <div className={styles['temporal-filters']}>
+        <h4>🎯 Filtros do Gráfico Temporal (Categorias)</h4>
+        <div className={styles['filter-group']}>
+          <div className={styles['filter-controls']}>
+            <label className={styles['filter-all']}>
+              <input
+                type="checkbox"
+                checked={allCategories}
+                onChange={handleAllCategoriesToggle}
+              />
+              <strong>Todas as Categorias</strong>
+            </label>
+            
+            <label className={styles['filter-all']}>
+              <input
+                type="checkbox"
+                checked={groupInterruptions}
+                onChange={handleGroupInterruptionsToggle}
+                disabled={temporalCategories.length === 0}
+              />
+              <strong>Agrupar Interrupções</strong>
+            </label>
+          </div>
+          
+          {!groupInterruptions && (
+            <div className={styles['category-filters']}>
+              {availableCategories.map(category => (
+                <label key={category} className={styles['filter-item']}>
+                  <input
+                    type="checkbox"
+                    checked={temporalCategories.includes(category)}
+                    onChange={() => handleCategoryToggle(category)}
+                  />
+                  {category.charAt(0).toUpperCase() + category.slice(1)}
+                </label>
+              ))}
+            </div>
+          )}
+          
+          {groupInterruptions ? (
+            <p className={styles['group-selected']}>
+              📊 Agrupando {temporalCategories.length} categorias em uma única linha
+            </p>
+          ) : temporalCategories.length > 0 ? (
+            <p className={styles['categories-info']}>
+              📈 {temporalCategories.length} de {availableCategories.length} categorias selecionadas
+            </p>
+          ) : (
+            <p className={styles['no-selection']}>
+              ⚠️ Selecione pelo menos uma categoria para visualizar o gráfico
+            </p>
           )}
         </div>
       </div>

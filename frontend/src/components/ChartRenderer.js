@@ -28,15 +28,20 @@ const formatNumber = (num) => {
 };
 
 const CATEGORIA_COLORS = {
+  'rede': '#ff0080',
   'armazenamento': '#8884d8',
-  'energia': '#82ca9d',
+  'usb': '#0080ff',
   'entrada': '#ffc658',
   'gpu': '#ff7300',
-  'outras': '#00ff00',
-  'rede': '#ff0080',
-  'sistema': '#8000ff',
+  'audio': '#9b59b6',
+  'energia': '#82ca9d',
   'temporizador': '#ff8000',
-  'usb': '#0080ff'
+  'inter-cpu': '#e74c3c',
+  'kernel': '#8000ff',
+  'pcie': '#2ecc71',
+  'virtualizacao': '#f39c12',
+  'gpio': '#16a085',
+  'sistema': '#34495e'
 };
 
 const CORES_COLORS = [
