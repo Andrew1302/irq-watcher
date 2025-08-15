@@ -31,7 +31,7 @@ irq-watcher/
 
 1. Clone o repositório:
 ```bash
-git clone <repository-url>
+git clone andrew1302/irq-watcher
 cd irq-watcher-api
 ```
 
@@ -61,11 +61,6 @@ go build -o irq-watcher main.go
 
 O servidor estará disponível em `http://localhost:8080`
 
-### Frontend (Dashboard)
-
-1. Abra o arquivo `web/index.html` no seu navegador
-2. O dashboard se conectará automaticamente à API
-3. Os dados são atualizados a cada 5 segundos
 
 ## Executando no Raspberry Pi
 
@@ -77,6 +72,25 @@ O servidor estará disponível em `http://localhost:8080`
 ```
 
 **Nota:** Edite o script `scripts/deploy.sh` e altere o IP do Raspberry Pi.
+
+### Forward da porta com ngrok
+```bash
+ngrok http http://localhost:8080
+```
+
+### Caso não tenha instalado ainda:
+
+```bash
+curl -sSL https://ngrok-agent.s3.amazonaws.com/ngrok.asc \
+  | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null \
+  && echo "deb https://ngrok-agent.s3.amazonaws.com bookworm main" \
+  | sudo tee /etc/apt/sources.list.d/ngrok.list \
+  && sudo apt update \
+  && sudo apt install ngrok
+
+ngrok config add-authtoken 31KLSJHIiL6FMGITwYSY3Ko7UvG_6QmaDd1twp2WpEqQZ14y6
+
+```
 
 ### Deploy Manual
 
