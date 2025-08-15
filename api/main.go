@@ -9,8 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"fmt"
-	
+
 	httpSwagger "github.com/swaggo/http-swagger"
 	_ "irq-watcher-api/docs"
 )
@@ -22,61 +21,31 @@ import (
 // @BasePath /
 
 var categorias = map[string]string{
-	// Rede
-	"eth": "rede", "enp": "rede", "ens": "rede", "eno": "rede",
-	"wlan": "rede", "wlx": "rede", "mlx": "rede", "mlx5": "rede",
-	"bnx": "rede", "ath10k_pci": "rede", "iwlwifi": "rede",
-	"e1000e": "rede", "igb": "rede", "r8169": "rede",
-	"virtio_net": "rede", "veth": "rede",
-
-	// Armazenamento
-	"nvme": "armazenamento", "sd": "armazenamento", "sda": "armazenamento",
-	"sdhci": "armazenamento", "mmc": "armazenamento", "scsi": "armazenamento",
-	"sata": "armazenamento", "ata": "armazenamento", "ahci": "armazenamento",
-	"dm-": "armazenamento", "md": "armazenamento", "uas": "armazenamento",
-	"usb-storage": "armazenamento",
-
-	// USB
-	"usb": "usb", "xhci": "usb", "xhci_hcd": "usb", "ehci": "usb",
-	"uhci": "usb", "ohci": "usb",
-
-	// Entrada
-	"i8042": "entrada", "psmouse": "entrada", "usbhid": "entrada",
-	"hid": "entrada", "serio": "entrada", "ELAN": "entrada",
-	"SYNA": "entrada", "rmi4": "entrada",
-
-	// GPU
-	"amdgpu": "gpu", "i915": "gpu", "nvidia": "gpu", "nouveau": "gpu",
-
-	// Áudio
-	"snd_hda_intel": "audio", "snd_": "audio", "sof-audio": "audio", "acp": "audio",
-
-	// Energia
-	"acpi": "energia", "thermal": "energia", "intel_thermal": "energia",
-
-	// Temporizador
+	"eth": "rede", "enp": "rede", "wlan": "rede", "mlx": "rede", "bnx": "rede", "ath10k_pci": "rede",
+	"nvme": "armazenamento", "sd": "armazenamento", "sda": "armazenamento", "ata": "armazenamento",
+	"ahci": "armazenamento", "xhci_hcd": "armazenamento", "ahci[0000:03:00.0]": "armazenamento",
+	"i8042": "entrada", "psmouse": "entrada", "ELAN0632:00": "entrada",
+	"usb": "usb", "xhci": "usb", "ehci": "usb", "uhci": "usb",
+	"acpi": "energia", "thermal": "energia",
 	"rtc": "temporizador", "timer": "temporizador",
-
-	// Inter-CPU
-	"IPI": "inter-cpu", "RES": "inter-cpu", "CAL": "inter-cpu", "TLB": "inter-cpu",
-
-	// Kernel interno
-	"NMI": "kernel", "LOC": "kernel", "SPU": "kernel", "PMI": "kernel",
-	"IWI": "kernel", "RTR": "kernel", "MCE": "kernel", "MCP": "kernel",
-	"ERR": "kernel", "MIS": "kernel", "THR": "kernel", "TRM": "kernel", "DFR": "kernel",
-
-	// PCIe
-	"pciehp": "pcie", "pcieport": "pcie", "thunderbolt": "pcie",
-
-	// Virtualização
-	"virtio": "virtualizacao", "vmbus": "virtualizacao", "hv_": "virtualizacao",
-
-	// GPIO/Sensores
-	"gpio": "gpio", "i2c": "gpio", "spi": "gpio",
+	"IPI": "inter-cpu", "call_function": "inter-cpu", "reschedule": "inter-cpu",
+	"NMI": "sistema", "LOC": "sistema", "SPU": "sistema", "PMI": "sistema", "IWI": "sistema",
+	"RTR": "sistema", "RES": "sistema", "CAL": "sistema", "TLB": "sistema", "TRM": "sistema",
+	"THR": "sistema", "DFR": "sistema", "MCE": "sistema", "MCP": "sistema", "PIN": "sistema",
+	"NPI": "sistema", "PIW": "sistema",
+	"amdgpu": "gpu",
 }
 
 type CpuTimes struct {
 	User, Nice, System, Idle, Iowait, Irq, Softirq, Steal uint64
+}
+
+type MemInfo struct {
+	MemTotal     uint64 `json:"mem_total_kb"`
+	MemFree      uint64 `json:"mem_free_kb"`
+	MemAvailable uint64 `json:"mem_available_kb"`
+	SwapTotal    uint64 `json:"swap_total_kb"`
+	SwapFree     uint64 `json:"swap_free_kb"`
 }
 
 type CpuUsage struct {
@@ -86,9 +55,9 @@ type CpuUsage struct {
 }
 
 type InterrupcoesResponse struct {
-	PorCPU         map[string]uint64                       `json:"por_cpu"`
-	PorCategoria   map[string]map[string]uint64            `json:"por_categoria"`
-	TrocasContexto uint64                                  `json:"trocas_de_contexto"`
+	PorCPU         map[string]uint64            `json:"por_cpu"`
+	PorCategoria   map[string]map[string]uint64 `json:"por_categoria"`
+	TrocasContexto uint64                       `json:"trocas_de_contexto"`
 }
 
 var lastStat CpuTimes
@@ -129,19 +98,65 @@ func readProcStat() (CpuTimes, uint64, error) {
 			ctxt, _ = strconv.ParseUint(fields[1], 10, 64)
 		}
 	}
+
+	if err := scanner.Err(); err != nil {
+		return CpuTimes{}, 0, err
+	}
+
 	return stat, ctxt, nil
+}
+
+func readProcMeminfo() (MemInfo, error) {
+	f, err := os.Open("/proc/meminfo")
+	if err != nil {
+		return MemInfo{}, err
+	}
+	defer f.Close()
+
+	var mem MemInfo
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		fields := strings.Fields(scanner.Text())
+		if len(fields) < 2 {
+			continue
+		}
+		key := strings.TrimSuffix(fields[0], ":")
+		val, err := strconv.ParseUint(fields[1], 10, 64)
+		if err != nil {
+			continue
+		}
+
+		switch key {
+		case "MemTotal":
+			mem.MemTotal = val
+		case "MemFree":
+			mem.MemFree = val
+		case "MemAvailable":
+			mem.MemAvailable = val
+		case "SwapTotal":
+			mem.SwapTotal = val
+		case "SwapFree":
+			mem.SwapFree = val
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return MemInfo{}, err
+	}
+
+	return mem, nil
 }
 
 func delta(a, b CpuTimes) CpuTimes {
 	return CpuTimes{
-		User:     b.User - a.User,
-		Nice:     b.Nice - a.Nice,
-		System:   b.System - a.System,
-		Idle:     b.Idle - a.Idle,
-		Iowait:   b.Iowait - a.Iowait,
-		Irq:      b.Irq - a.Irq,
-		Softirq:  b.Softirq - a.Softirq,
-		Steal:    b.Steal - a.Steal,
+		User:    b.User - a.User,
+		Nice:    b.Nice - a.Nice,
+		System:  b.System - a.System,
+		Idle:    b.Idle - a.Idle,
+		Iowait:  b.Iowait - a.Iowait,
+		Irq:     b.Irq - a.Irq,
+		Softirq: b.Softirq - a.Softirq,
+		Steal:   b.Steal - a.Steal,
 	}
 }
 
@@ -180,14 +195,12 @@ func readProcInterrupts() (map[string]uint64, map[string]map[string]uint64, erro
 
 	linha := 0
 	for scanner.Scan() {
-		texto := scanner.Text()
-		campos := strings.Fields(texto)
+		campos := strings.Fields(scanner.Text())
 		if linha == 0 {
 			cpuCount = len(campos) - 1
 			linha++
 			continue
 		}
-
 		if len(campos) < cpuCount+1 {
 			continue
 		}
@@ -196,12 +209,10 @@ func readProcInterrupts() (map[string]uint64, map[string]map[string]uint64, erro
 		if strings.Contains(nome, "interrupts") || strings.Contains(nome, "retries") ||
 			strings.Contains(nome, "exceptions") || strings.Contains(nome, "polls") ||
 			strings.Contains(nome, "event") || strings.Contains(nome, "shootdowns") {
-				prefixo := strings.TrimSuffix(campos[0], ":")
-				nome = prefixo
+			nome = strings.TrimSuffix(campos[0], ":")
 		}
-		fmt.Println(nome)
-		categoria := classificarCategoria(nome)
 
+		categoria := classificarCategoria(nome)
 		if _, ok := porCategoria[categoria]; !ok {
 			porCategoria[categoria] = make(map[string]uint64)
 		}
@@ -215,6 +226,11 @@ func readProcInterrupts() (map[string]uint64, map[string]map[string]uint64, erro
 			}
 		}
 	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, nil, err
+	}
+
 	return porCPU, porCategoria, nil
 }
 
@@ -227,14 +243,23 @@ func readProcInterrupts() (map[string]uint64, map[string]map[string]uint64, erro
 // @Failure 500 {string} string "Erro interno do servidor"
 // @Router /metrics [get]
 func handler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
 	atualStat, ctxt, err := readProcStat()
 	if err != nil {
-		http.Error(w, "Erro lendo /proc/stat", 500)
+		http.Error(w, "Erro lendo /proc/stat", http.StatusInternalServerError)
 		return
 	}
+
 	porCPU, porCategoria, err := readProcInterrupts()
 	if err != nil {
-		http.Error(w, "Erro lendo /proc/interrupts", 500)
+		http.Error(w, "Erro lendo /proc/interrupts", http.StatusInternalServerError)
+		return
+	}
+
+	memInfo, err := readProcMeminfo()
+	if err != nil {
+		http.Error(w, "Erro lendo /proc/meminfo", http.StatusInternalServerError)
 		return
 	}
 
@@ -246,7 +271,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			PorCategoria:   porCategoria,
 			TrocasContexto: ctxt,
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 		return
 	}
 
@@ -258,18 +283,19 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		PorCPU            map[string]uint64               `json:"por_cpu"`
 		PorCategoria      map[string]map[string]uint64    `json:"por_categoria"`
 		TrocasDeContexto  uint64                          `json:"trocas_de_contexto"`
+		Memoria           MemInfo                         `json:"memoria"`
 	}{
 		InterrupcoesTempo: uso,
 		PorCPU:            porCPU,
 		PorCategoria:      porCategoria,
 		TrocasDeContexto:  ctxt,
+		Memoria:           memInfo,
 	}
 
 	lastStat = atualStat
 	lastTime = time.Now()
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 func main() {
