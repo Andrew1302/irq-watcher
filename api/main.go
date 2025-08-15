@@ -22,19 +22,57 @@ import (
 // @BasePath /
 
 var categorias = map[string]string{
-	"eth": "rede", "enp": "rede", "wlan": "rede", "mlx": "rede", "bnx": "rede", "ath10k_pci": "rede",
-	"nvme": "armazenamento", "sd": "armazenamento", "sda": "armazenamento", "ata": "armazenamento", 
-	"ahci": "armazenamento", "xhci_hcd": "armazenamento", "ahci[0000:03:00.0]": "armazenamento",
-	"i8042": "entrada", "psmouse": "entrada", "ELAN0632:00": "entrada",
-	"usb": "usb", "xhci": "usb", "ehci": "usb", "uhci": "usb",
-	"acpi": "energia", "thermal": "energia",
+	// Rede
+	"eth": "rede", "enp": "rede", "ens": "rede", "eno": "rede",
+	"wlan": "rede", "wlx": "rede", "mlx": "rede", "mlx5": "rede",
+	"bnx": "rede", "ath10k_pci": "rede", "iwlwifi": "rede",
+	"e1000e": "rede", "igb": "rede", "r8169": "rede",
+	"virtio_net": "rede", "veth": "rede",
+
+	// Armazenamento
+	"nvme": "armazenamento", "sd": "armazenamento", "sda": "armazenamento",
+	"sdhci": "armazenamento", "mmc": "armazenamento", "scsi": "armazenamento",
+	"sata": "armazenamento", "ata": "armazenamento", "ahci": "armazenamento",
+	"dm-": "armazenamento", "md": "armazenamento", "uas": "armazenamento",
+	"usb-storage": "armazenamento",
+
+	// USB
+	"usb": "usb", "xhci": "usb", "xhci_hcd": "usb", "ehci": "usb",
+	"uhci": "usb", "ohci": "usb",
+
+	// Entrada
+	"i8042": "entrada", "psmouse": "entrada", "usbhid": "entrada",
+	"hid": "entrada", "serio": "entrada", "ELAN": "entrada",
+	"SYNA": "entrada", "rmi4": "entrada",
+
+	// GPU
+	"amdgpu": "gpu", "i915": "gpu", "nvidia": "gpu", "nouveau": "gpu",
+
+	// Áudio
+	"snd_hda_intel": "audio", "snd_": "audio", "sof-audio": "audio", "acp": "audio",
+
+	// Energia
+	"acpi": "energia", "thermal": "energia", "intel_thermal": "energia",
+
+	// Temporizador
 	"rtc": "temporizador", "timer": "temporizador",
-	"IPI": "inter-cpu", "call_function": "inter-cpu", "reschedule": "inter-cpu",
-	"NMI": "sistema", "LOC": "sistema", "SPU": "sistema", "PMI": "sistema", "IWI": "sistema",
-	"RTR": "sistema", "RES": "sistema", "CAL": "sistema", "TLB": "sistema", "TRM": "sistema",
-	"THR": "sistema", "DFR": "sistema", "MCE": "sistema", "MCP": "sistema", "PIN": "sistema",
-	"NPI": "sistema", "PIW": "sistema",
-	"amdgpu": "gpu",
+
+	// Inter-CPU
+	"IPI": "inter-cpu", "RES": "inter-cpu", "CAL": "inter-cpu", "TLB": "inter-cpu",
+
+	// Kernel interno
+	"NMI": "kernel", "LOC": "kernel", "SPU": "kernel", "PMI": "kernel",
+	"IWI": "kernel", "RTR": "kernel", "MCE": "kernel", "MCP": "kernel",
+	"ERR": "kernel", "MIS": "kernel", "THR": "kernel", "TRM": "kernel", "DFR": "kernel",
+
+	// PCIe
+	"pciehp": "pcie", "pcieport": "pcie", "thunderbolt": "pcie",
+
+	// Virtualização
+	"virtio": "virtualizacao", "vmbus": "virtualizacao", "hv_": "virtualizacao",
+
+	// GPIO/Sensores
+	"gpio": "gpio", "i2c": "gpio", "spi": "gpio",
 }
 
 type CpuTimes struct {
